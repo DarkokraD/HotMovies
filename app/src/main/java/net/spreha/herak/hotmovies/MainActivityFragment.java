@@ -26,10 +26,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A placeholder fragment containing a simple view.
@@ -60,7 +61,7 @@ public class MainActivityFragment extends Fragment {
                              Bundle savedInstanceState) {
 
         View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-        mMoviesGrid = (GridView) rootView;
+        mMoviesGrid = (GridView) rootView.findViewById(R.id.main_fragment_grid);
 
         ArrayList<String> movies = new ArrayList<String>();
 
@@ -107,6 +108,7 @@ public class MainActivityFragment extends Fragment {
                 for(String moviePoster : result) {
                     mMovieAdapter.add(moviePoster);
                 }
+                mMoviesGrid.setAdapter(mMovieAdapter);
                 // New data is back from the server.  Hooray!
             }
         }
@@ -204,7 +206,6 @@ public class MainActivityFragment extends Fragment {
 
         private String[] getMovieDataFromJson(String moviesJsonStr)
                 throws JSONException {
-            List<String> moviePosters = new ArrayList<>();
 
             String MDB_RESULTS = "results";
             String MDB_POSTER_PATH = "poster_path";
@@ -215,17 +216,20 @@ public class MainActivityFragment extends Fragment {
 
             JSONArray movies = jsonObject.getJSONArray(MDB_RESULTS);
 
+            String[] moviePosters = new String[movies.length()];
+
             for(int i = 0; i < movies.length(); i++){
                 JSONObject movie = movies.getJSONObject(i);
                 String relPath = movie.getString(MDB_POSTER_PATH);
-                Uri.Builder builder = new Uri.Builder();
-                Uri uri = builder.path(MDB_POSTER_BASE_PATH)
-                        .appendPath(MDB_POSTER_SIZE)
-                        .appendPath(relPath).build();
-                moviePosters.add(uri.toString());
+
+                try {
+                    moviePosters[i] = URLDecoder.decode(MDB_POSTER_BASE_PATH + MDB_POSTER_SIZE + relPath, "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
             }
 
-            return (String[]) moviePosters.toArray();
+            return moviePosters;
 
 
         }
