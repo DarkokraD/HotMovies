@@ -41,6 +41,7 @@ public class MainActivityFragment extends Fragment {
     private GridView mMoviesGrid;
 
     public MainActivityFragment() {
+        super();
     }
 
     @Override
