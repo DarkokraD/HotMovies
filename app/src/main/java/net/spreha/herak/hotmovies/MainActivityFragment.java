@@ -2,6 +2,7 @@ package net.spreha.herak.hotmovies;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -12,6 +13,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.GridView;
 import android.widget.ImageView;
@@ -39,6 +41,14 @@ public class MainActivityFragment extends Fragment {
 
     private MovieAdapter mMovieAdapter;
     private GridView mMoviesGrid;
+    private JSONArray moviesJSON;
+    private final String LOG_TAG = this.getClass().getSimpleName();
+    final String MDB_RESULTS = "results";
+
+    private static final String MDB_POSTER_DETAILS_SIZE = "w342";
+    final String MDB_POSTER_PATH = "poster_path";
+    final String MDB_POSTER_BASE_PATH = "http://image.tmdb.org/t/p/";
+    final String MDB_POSTER_SIZE = "w185";
 
     public MainActivityFragment() {
         super();
@@ -53,8 +63,8 @@ public class MainActivityFragment extends Fragment {
     private void updateMovies() {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
         String sort_by = preferences.getString(getString(R.string.pref_sort_key), getString(R.string.pref_sort_default));
-        FetchMoviesTask weatherTask = new FetchMoviesTask();
-        weatherTask.execute(sort_by);
+        FetchMoviesTask fetchMoviesTask = new FetchMoviesTask();
+        fetchMoviesTask.execute(sort_by);
     }
 
     @Override
@@ -63,6 +73,29 @@ public class MainActivityFragment extends Fragment {
 
         View rootView = inflater.inflate(R.layout.fragment_main, container, false);
         mMoviesGrid = (GridView) rootView.findViewById(R.id.main_fragment_grid);
+
+        mMoviesGrid.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if(moviesJSON != null){
+                    Intent detailsIntent = null;
+                    try {
+                        JSONObject movieJSON = moviesJSON.getJSONObject(position);
+                        detailsIntent = new Intent(getActivity(), DetailsActivity.class)
+                                .putExtra("original_title", movieJSON.getString("original_title"))
+                                .putExtra("poster_path", MDB_POSTER_BASE_PATH
+                                    + MDB_POSTER_DETAILS_SIZE + movieJSON.getString("poster_path"))
+                                .putExtra("vote_average", movieJSON.getString("vote_average"))
+                                .putExtra("overview", movieJSON.getString("overview"))
+                                .putExtra("release_date", movieJSON.getString("release_date"));
+                        Log.d(LOG_TAG, movieJSON.toString());
+                        startActivity(detailsIntent);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
 
         ArrayList<String> movies = new ArrayList<String>();
 
@@ -135,20 +168,23 @@ public class MainActivityFragment extends Fragment {
             try {
                 // Construct the URL for the OpenWeatherMap query
                 // Possible parameters are avaiable at OWM's forecast API page, at
-                // http://openweathermap.org/API#forecast
+                // https://api.themoviedb.org/3/discover/movie?sort_by=vote_average.desc&api_key= 718ab2399a95ccd0758be577b34be893
                 final String DISCOVER_BASE_URL =
                         "https://api.themoviedb.org/3/discover/movie?";
                 final String SORT_BY_PARAM = "sort_by";
                 final String API_KEY_PARAM = "api_key";
+                final String VOTE_GTE_PARAM = "vote_count.gte";
+
+                String vote_gte = "400";
 
                 Uri builtUri = Uri.parse(DISCOVER_BASE_URL).buildUpon()
                         .appendQueryParameter(SORT_BY_PARAM, sort_by)
+                        .appendQueryParameter(VOTE_GTE_PARAM, vote_gte)
                         .appendQueryParameter(API_KEY_PARAM, BuildConfig.THE_MOVIE_DB_API_KEY)
                         .build();
 
                 URL url = new URL(builtUri.toString());
 
-                // Create the request to OpenWeatherMap, and open the connection
                 urlConnection = (HttpURLConnection) url.openConnection();
                 urlConnection.setRequestMethod("GET");
                 urlConnection.connect();
@@ -208,10 +244,7 @@ public class MainActivityFragment extends Fragment {
         private String[] getMovieDataFromJson(String moviesJsonStr)
                 throws JSONException {
 
-            String MDB_RESULTS = "results";
-            String MDB_POSTER_PATH = "poster_path";
-            String MDB_POSTER_BASE_PATH = "http://image.tmdb.org/t/p/";
-            String MDB_POSTER_SIZE = "w185";
+
 
             JSONObject jsonObject = new JSONObject(moviesJsonStr);
 
@@ -219,7 +252,9 @@ public class MainActivityFragment extends Fragment {
 
             String[] moviePosters = new String[movies.length()];
 
+            moviesJSON = new JSONArray();
             for(int i = 0; i < movies.length(); i++){
+                moviesJSON.put(movies.getJSONObject(i));
                 JSONObject movie = movies.getJSONObject(i);
                 String relPath = movie.getString(MDB_POSTER_PATH);
 
